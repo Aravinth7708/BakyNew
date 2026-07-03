@@ -28,9 +28,11 @@ export function Sidebar() {
     <aside className="flex w-[321px] shrink-0 flex-col bg-baky-surface px-4 py-8">
       {/* Brand */}
       <div className="flex items-center gap-3 px-2">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-baky-bar-strong text-2xl font-bold text-black">
-          B
-        </div>
+        <img 
+          src="/Baky logo .png" 
+          alt="Baky Logo" 
+          className="h-12 w-12 rounded-full object-cover" 
+        />
         <div className="leading-tight">
           <p className="text-2xl font-medium text-black">Baky Dessert House</p>
           <p className="text-lg font-light text-black">Management</p>
