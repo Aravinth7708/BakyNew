@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useBakyData, MenuItem } from "@/context/BakyDataContext";
 import { toast } from "sonner";
-import { Trash2, Plus, X } from "lucide-react";
 
 function Toggle({
   on,
@@ -15,7 +14,7 @@ function Toggle({
       onClick={onToggle}
       aria-pressed={on}
       className={`relative h-[21px] w-[43px] shrink-0 rounded-full transition-colors ${
-        on ? "bg-[#0ac655]" : "bg-baky-track"
+        on ? "bg-baky-green" : "bg-baky-track"
       }`}
     >
       <span
@@ -33,37 +32,50 @@ export function MenuBoard() {
     menuItems, 
     toggleCategory, 
     toggleMenuItem, 
-    deleteMenuItem,
-    addCategory,
+    addCategory, 
     addMenuItem 
   } = useBakyData();
 
-  // Forms states
+  // Highlight first category
+  const [selectedIdx, setSelectedIdx] = useState<number>(0);
+
+  // Expanded states for items variants lists
+  const [expandedVariants, setExpandedVariants] = useState<Record<string, boolean>>({});
+
+  // Form toggles
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCatName, setNewCatName] = useState("");
 
   const [showAddItem, setShowAddItem] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
-  const [newItemCat, setNewItemCat] = useState("");
   const [newItemVariants, setNewItemVariants] = useState("");
+
+  const activeCategoryName = categories[selectedIdx]?.name || "";
+
+  // Filter items in active category
+  const activeItems = menuItems.filter(item => item.category === activeCategoryName);
+
+  const toggleVariantsExpand = (itemName: string) => {
+    setExpandedVariants(prev => ({ ...prev, [itemName]: !prev[itemName] }));
+  };
 
   const handleCreateCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatName.trim()) return;
     addCategory(newCatName.trim());
-    toast.success(`Category "${newCatName}" added`);
     setNewCatName("");
     setShowAddCategory(false);
+    toast.success(`Category "${newCatName}" added`);
   };
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
-    const cat = newItemCat || categories[0]?.name;
-    if (!newItemName.trim() || !newItemPrice || !cat) {
-      toast.error("Please fill in all required fields");
+    if (!activeCategoryName) {
+      toast.error("Please select a category first.");
       return;
     }
+    if (!newItemName.trim() || !newItemPrice) return;
 
     const variantsArray = newItemVariants
       .split(",")
@@ -73,34 +85,27 @@ export function MenuBoard() {
     const newItem: MenuItem = {
       name: newItemName.trim(),
       price: parseFloat(newItemPrice),
-      category: cat,
+      category: activeCategoryName,
       variants: variantsArray,
       enabled: true,
     };
 
     addMenuItem(newItem);
-    toast.success(`Item "${newItem.name}" added`);
     setNewItemName("");
     setNewItemPrice("");
     setNewItemVariants("");
-    setNewItemCat("");
     setShowAddItem(false);
-  };
-
-  const handleDeleteItem = (name: string) => {
-    if (confirm(`Are you sure you want to delete ${name}?`)) {
-      deleteMenuItem(name);
-      toast.info(`Deleted ${name}`);
-    }
+    toast.success(`Item "${newItem.name}" added`);
   };
 
   return (
-    <div className="flex flex-1 flex-col rounded-[15px] bg-baky-surface shadow-sm">
+    <div className="flex flex-1 flex-col rounded-[15px] bg-baky-surface">
       <div className="grid flex-1 grid-cols-1 lg:grid-cols-2">
+        
         {/* Category column */}
-        <section className="flex flex-col border-b border-baky-muted/20 p-6 lg:border-b-0 lg:border-r">
+        <section className="flex flex-col border-b border-baky-muted/50 p-6 lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-black">
+            <h2 className="text-2xl font-medium text-black">
               Category ({categories.length})
             </h2>
             <button 
@@ -115,40 +120,36 @@ export function MenuBoard() {
             <form onSubmit={handleCreateCategory} className="mt-4 flex gap-2">
               <input
                 type="text"
-                placeholder="Category Name"
                 required
+                placeholder="Category Name"
                 value={newCatName}
                 onChange={(e) => setNewCatName(e.target.value)}
-                className="flex-1 rounded-lg border border-baky-muted/30 px-3 py-2 text-lg text-black outline-none focus:border-[#3395FF]"
+                className="flex-1 rounded-lg border border-baky-muted/30 px-3 py-1.5 text-base text-black outline-none focus:border-[#3395FF]"
                 autoFocus
               />
               <button
                 type="submit"
-                className="rounded-lg bg-[#3395FF] px-4 py-2 text-lg font-semibold text-white hover:bg-[#2a86ea]"
+                className="rounded-lg bg-[#3395FF] px-4 py-1.5 text-base font-semibold text-white hover:bg-[#2a86ea]"
               >
                 Add
               </button>
             </form>
           )}
 
-          <ul className="mt-6 divide-y divide-baky-muted/10">
+          <ul className="mt-6 divide-y divide-baky-muted/30">
             {categories.map((c, i) => (
               <li
                 key={c.name}
-                className="flex items-center justify-between px-2 py-4 text-xl text-black hover:bg-baky-card/10 transition-colors rounded-lg"
+                className={`flex items-center justify-between px-2 py-4 text-xl text-black cursor-pointer rounded-md ${
+                  i === selectedIdx ? "bg-baky-card" : ""
+                }`}
+                onClick={() => setSelectedIdx(i)}
               >
-                <span className={c.enabled ? "" : "text-baky-muted line-through"}>
-                  {c.name}
-                </span>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium text-baky-muted">
-                    {c.enabled ? "Active" : "Disabled"}
-                  </span>
-                  <Toggle
-                    on={c.enabled}
-                    onToggle={() => toggleCategory(c.name)}
-                  />
-                </div>
+                <span>{c.name}</span>
+                <Toggle
+                  on={c.enabled}
+                  onToggle={() => toggleCategory(c.name)}
+                />
               </li>
             ))}
           </ul>
@@ -157,21 +158,22 @@ export function MenuBoard() {
         {/* Items column */}
         <section className="flex flex-col p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-black">
-              Items ({menuItems.length})
+            <h2 className="text-2xl font-medium text-black">
+              Items ({activeItems.length})
             </h2>
-            <button 
-              onClick={() => setShowAddItem(!showAddItem)}
-              className="text-lg font-semibold text-[#1177E5] hover:underline"
-            >
-              + ADD NEW
-            </button>
+            {activeCategoryName && (
+              <button 
+                onClick={() => setShowAddItem(!showAddItem)}
+                className="text-lg font-semibold text-[#1177E5] hover:underline"
+              >
+                + ADD NEW
+              </button>
+            )}
           </div>
 
           {showAddItem && (
-            <form onSubmit={handleCreateItem} className="mt-4 rounded-lg bg-baky-card/40 p-4 space-y-3 border border-baky-muted/10">
-              <p className="text-sm font-semibold text-baky-muted">Add New Menu Item</p>
-              
+            <form onSubmit={handleCreateItem} className="mt-4 rounded-lg bg-baky-card/50 p-4 space-y-3 border border-baky-muted/10">
+              <p className="text-sm font-semibold text-baky-muted">Adding item to {activeCategoryName}</p>
               <div className="grid grid-cols-2 gap-2">
                 <input
                   type="text"
@@ -179,7 +181,7 @@ export function MenuBoard() {
                   required
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
+                  className="rounded-lg border border-baky-muted/30 bg-white px-3 py-1.5 text-sm text-black outline-none focus:border-[#3395FF]"
                 />
                 <input
                   type="number"
@@ -188,45 +190,27 @@ export function MenuBoard() {
                   min="0"
                   value={newItemPrice}
                   onChange={(e) => setNewItemPrice(e.target.value)}
-                  className="rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
+                  className="rounded-lg border border-baky-muted/30 bg-white px-3 py-1.5 text-sm text-black outline-none focus:border-[#3395FF]"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  required
-                  value={newItemCat}
-                  onChange={(e) => setNewItemCat(e.target.value)}
-                  className="rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((c) => (
-                    <option key={c.name} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  type="text"
-                  placeholder="Variants (Belgian, Brownie...)"
-                  value={newItemVariants}
-                  onChange={(e) => setNewItemVariants(e.target.value)}
-                  className="rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                />
-              </div>
-
+              <input
+                type="text"
+                placeholder="Variants (comma-separated, e.g. Belgian, Brownie)"
+                value={newItemVariants}
+                onChange={(e) => setNewItemVariants(e.target.value)}
+                className="w-full rounded-lg border border-baky-muted/30 bg-white px-3 py-1.5 text-sm text-black outline-none focus:border-[#3395FF]"
+              />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowAddItem(false)}
-                  className="rounded-lg border border-baky-muted/30 px-3 py-1.5 text-base font-medium text-black hover:bg-white"
+                  className="rounded-lg border border-baky-muted/30 px-3 py-1 text-sm font-medium text-black hover:bg-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-[#3395FF] px-4 py-1.5 text-base font-semibold text-white hover:bg-[#2a86ea]"
+                  className="rounded-lg bg-[#3395FF] px-4 py-1 text-sm font-semibold text-white hover:bg-[#2a86ea]"
                 >
                   Create
                 </button>
@@ -234,46 +218,52 @@ export function MenuBoard() {
             </form>
           )}
 
-          <ul className="mt-6 space-y-4 max-h-[500px] overflow-y-auto pr-1">
-            {menuItems.map((item) => (
-              <li 
-                key={item.name} 
-                className="flex items-center justify-between gap-4 p-3 rounded-lg hover:bg-baky-card/25 transition-colors border border-baky-muted/5"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="h-[9px] w-[9px] shrink-0 rounded-full bg-baky-bar-strong" />
-                    <p className={`text-xl font-medium ${item.enabled ? "text-black" : "text-baky-muted line-through"}`}>
-                      {item.name}, ₹{item.price}
-                    </p>
-                  </div>
-                  <div className="pl-4 mt-0.5 flex items-center gap-3">
-                    <span className="text-sm text-baky-muted font-medium bg-baky-card/50 px-2 py-0.5 rounded">
-                      {item.category}
-                    </span>
+          <ul className="mt-6 space-y-6 max-h-[500px] overflow-y-auto pr-1">
+            {activeItems.map((item, i) => {
+              const showVariants = !!expandedVariants[item.name];
+
+              return (
+                <li key={i} className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="h-[9px] w-[9px] shrink-0 rounded-full bg-baky-bar-strong" />
+                      <p className="text-xl text-black">
+                        {item.name}, ₹{item.price}
+                      </p>
+                    </div>
+
                     {item.variants.length > 0 && (
-                      <span className="text-sm text-[#1177E5] font-semibold">
-                        {item.variants.length} Variants: {item.variants.join(", ")}
-                      </span>
+                      <button 
+                        onClick={() => toggleVariantsExpand(item.name)}
+                        className="mt-1 pl-4 text-[15px] font-semibold text-[#1177E5] hover:underline"
+                      >
+                        {showVariants ? "- Hide Variants" : `+ ${item.variants.length} Variants`}
+                      </button>
+                    )}
+
+                    {showVariants && item.variants.length > 0 && (
+                      <ul className="mt-2 space-y-1.5 pl-4">
+                        {item.variants.map((v) => (
+                          <li key={v} className="text-[15px] text-baky-muted flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-baky-muted/50" />
+                            {v}
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
-                </div>
-
-                <div className="flex items-center gap-4 shrink-0">
                   <Toggle
                     on={item.enabled}
                     onToggle={() => toggleMenuItem(item.name)}
                   />
-                  <button
-                    onClick={() => handleDeleteItem(item.name)}
-                    className="text-baky-muted hover:text-baky-red transition-colors p-1"
-                    title="Delete Item"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
+            {activeItems.length === 0 && (
+              <div className="flex h-36 items-center justify-center border border-dashed border-baky-muted/20 rounded-lg">
+                <p className="text-xl text-baky-muted font-light">No items in this category.</p>
+              </div>
+            )}
           </ul>
         </section>
       </div>

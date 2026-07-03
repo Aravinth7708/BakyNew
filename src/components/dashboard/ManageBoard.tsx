@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useBakyData, Staff, Outlet } from "@/context/BakyDataContext";
 import { toast } from "sonner";
-import { Trash2, Edit2, Check, X, ShieldAlert, Users, Store, RotateCcw } from "lucide-react";
-
-type ManageTab = "staff" | "outlets" | "reset";
+import { Edit2, Trash2, Check, X, RotateCcw } from "lucide-react";
 
 export function ManageBoard() {
   const {
@@ -18,16 +16,17 @@ export function ManageBoard() {
     resetAllData,
   } = useBakyData();
 
-  const [activeTab, setActiveTab] = useState<ManageTab>("staff");
+  // Active selection
+  const [selectedOption, setSelectedOption] = useState<"Staff" | "Outlets" | "Reset" | null>(null);
 
-  // Staff Form States
+  // Staff Editing States
   const [showStaffForm, setShowStaffForm] = useState(false);
   const [editingStaffName, setEditingStaffName] = useState<string | null>(null);
   const [staffName, setStaffName] = useState("");
   const [staffRole, setStaffRole] = useState("");
   const [staffContact, setStaffContact] = useState("");
 
-  // Outlet Form States
+  // Outlet Editing States
   const [showOutletForm, setShowOutletForm] = useState(false);
   const [editingOutletName, setEditingOutletName] = useState<string | null>(null);
   const [outletName, setOutletName] = useState("");
@@ -35,13 +34,17 @@ export function ManageBoard() {
   const [outletPhone, setOutletPhone] = useState("");
   const [outletStatus, setOutletStatus] = useState<"Active" | "Inactive">("Active");
 
-  // Staff Submit
+  const startEditStaff = (member: Staff) => {
+    setEditingStaffName(member.name);
+    setStaffName(member.name);
+    setStaffRole(member.role);
+    setStaffContact(member.contact);
+    setShowStaffForm(true);
+  };
+
   const handleStaffSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!staffName.trim() || !staffRole.trim() || !staffContact.trim()) {
-      toast.error("Please fill in all fields.");
-      return;
-    }
+    if (!staffName.trim() || !staffRole.trim() || !staffContact.trim()) return;
 
     const member: Staff = {
       name: staffName.trim(),
@@ -51,10 +54,10 @@ export function ManageBoard() {
 
     if (editingStaffName) {
       editStaff(editingStaffName, member);
-      toast.success(`Updated staff details for ${member.name}`);
+      toast.success(`Updated staff: ${member.name}`);
     } else {
       addStaff(member);
-      toast.success(`Added new staff member: ${member.name}`);
+      toast.success(`Added staff: ${member.name}`);
     }
 
     clearStaffForm();
@@ -68,28 +71,25 @@ export function ManageBoard() {
     setShowStaffForm(false);
   };
 
-  const startEditStaff = (member: Staff) => {
-    setEditingStaffName(member.name);
-    setStaffName(member.name);
-    setStaffRole(member.role);
-    setStaffContact(member.contact);
-    setShowStaffForm(true);
-  };
-
   const handleDeleteStaff = (name: string) => {
-    if (confirm(`Are you sure you want to delete staff member "${name}"?`)) {
+    if (confirm(`Delete staff member "${name}"?`)) {
       deleteStaff(name);
-      toast.info(`Removed staff member "${name}"`);
+      toast.info(`Deleted staff: ${name}`);
     }
   };
 
-  // Outlet Submit
+  const startEditOutlet = (outlet: Outlet) => {
+    setEditingOutletName(outlet.name);
+    setOutletName(outlet.name);
+    setOutletLoc(outlet.location);
+    setOutletPhone(outlet.phone);
+    setOutletStatus(outlet.status);
+    setShowOutletForm(true);
+  };
+
   const handleOutletSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!outletName.trim() || !outletLoc.trim() || !outletPhone.trim()) {
-      toast.error("Please fill in all fields.");
-      return;
-    }
+    if (!outletName.trim() || !outletLoc.trim() || !outletPhone.trim()) return;
 
     const outlet: Outlet = {
       name: outletName.trim(),
@@ -100,10 +100,10 @@ export function ManageBoard() {
 
     if (editingOutletName) {
       editOutlet(editingOutletName, outlet);
-      toast.success(`Updated outlet details for ${outlet.name}`);
+      toast.success(`Updated store: ${outlet.name}`);
     } else {
       addOutlet(outlet);
-      toast.success(`Added new outlet: ${outlet.name}`);
+      toast.success(`Added store: ${outlet.name}`);
     }
 
     clearOutletForm();
@@ -118,344 +118,284 @@ export function ManageBoard() {
     setShowOutletForm(false);
   };
 
-  const startEditOutlet = (outlet: Outlet) => {
-    setEditingOutletName(outlet.name);
-    setOutletName(outlet.name);
-    setOutletLoc(outlet.location);
-    setOutletPhone(outlet.phone);
-    setOutletStatus(outlet.status);
-    setShowOutletForm(true);
-  };
-
   const handleDeleteOutlet = (name: string) => {
-    if (confirm(`Are you sure you want to delete outlet "${name}"?`)) {
+    if (confirm(`Delete outlet "${name}"?`)) {
       deleteOutlet(name);
-      toast.info(`Removed outlet "${name}"`);
+      toast.info(`Deleted outlet: ${name}`);
     }
   };
 
   const handleResetData = () => {
-    if (
-      confirm(
-        "WARNING: This will reset all your POS sales data, orders, menu changes, and inventory back to defaults. Do you want to proceed?"
-      )
-    ) {
+    if (confirm("Reset all sales, orders, and system settings back to defaults?")) {
       resetAllData();
-      toast.success("All application data has been reset to default seed values.");
+      toast.success("Application data reset successfully.");
+      setSelectedOption(null);
     }
   };
 
+  const options = [
+    {
+      id: "Staff" as const,
+      title: "Staff",
+      description: "View users and their roles and responsibilities",
+    },
+    {
+      id: "Outlets" as const,
+      title: "Outlets",
+      description: "Update outlet level informations",
+    },
+    {
+      id: "Reset" as const,
+      title: "Reset Data",
+      description: "Clear localStorage and restore default seed data",
+    },
+  ];
+
   return (
     <div className="flex flex-1 flex-col rounded-[15px] bg-baky-surface shadow-sm">
-      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[250px_1fr]">
-        {/* Left Admin Navigation Column */}
-        <section className="flex flex-col border-b border-baky-muted/20 p-6 lg:border-b-0 lg:border-r">
-          <h2 className="text-2xl font-semibold text-black">Settings & Admin</h2>
-          
-          <nav className="mt-6 flex flex-wrap gap-2 lg:flex-col lg:gap-1">
-            <button
-              onClick={() => setActiveTab("staff")}
-              className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-lg font-semibold transition-all ${
-                activeTab === "staff"
-                  ? "bg-baky-card text-black"
-                  : "text-baky-muted hover:bg-baky-card/30 hover:text-black"
-              }`}
-            >
-              <Users className="h-5 w-5" />
-              <span>Staff Users</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab("outlets")}
-              className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-lg font-semibold transition-all ${
-                activeTab === "outlets"
-                  ? "bg-baky-card text-black"
-                  : "text-baky-muted hover:bg-baky-card/30 hover:text-black"
-              }`}
-            >
-              <Store className="h-5 w-5" />
-              <span>Outlet List</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab("reset")}
-              className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-lg font-semibold transition-all ${
-                activeTab === "reset"
-                  ? "bg-baky-red/10 text-baky-red"
-                  : "text-baky-muted hover:bg-baky-red/5 hover:text-baky-red"
-              }`}
-            >
-              <RotateCcw className="h-5 w-5" />
-              <span>Reset App Data</span>
-            </button>
-          </nav>
+      <div className="grid flex-1 grid-cols-1 lg:grid-cols-2">
+        {/* Admin column */}
+        <section className="flex flex-col p-6 lg:border-r lg:border-baky-muted/50">
+          <h2 className="text-2xl font-medium text-black">Admin</h2>
+
+          <ul className="mt-6 border-t border-baky-muted/40">
+            {options.map((o) => (
+              <li key={o.title}>
+                <button 
+                  onClick={() => {
+                    setSelectedOption(o.id);
+                    clearStaffForm();
+                    clearOutletForm();
+                  }}
+                  className={`flex w-full items-center justify-between gap-4 py-6 text-left hover:bg-baky-card/30 rounded-lg px-2 transition-all ${
+                    selectedOption === o.id ? "bg-baky-card/50" : ""
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-2xl font-medium text-black">{o.title}</p>
+                    <p className="mt-1 text-xl font-light text-baky-muted">
+                      {o.description}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-2xl font-medium text-[#3395FF]">
+                    &gt;
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
 
-        {/* Right Active Panel Column */}
-        <section className="flex flex-col p-6">
-          {/* TAB 1: STAFF MANAGEMENT */}
-          {activeTab === "staff" && (
+        {/* Dynamic details column (previously hidden/empty, now functional) */}
+        <section className="flex flex-col p-6 max-h-[580px] overflow-y-auto pr-1">
+          {/* Staff Option Selected */}
+          {selectedOption === "Staff" && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-semibold text-black">Staff Directory</h3>
-                {!showStaffForm && (
-                  <button
-                    onClick={() => setShowStaffForm(true)}
-                    className="rounded-lg bg-[#3395FF] px-4 py-2 text-base font-bold text-white hover:bg-[#2a86ea] transition-all"
-                  >
-                    + Add Staff
-                  </button>
-                )}
+              <div className="flex items-center justify-between border-b pb-3 border-baky-muted/20">
+                <h3 className="text-2xl font-semibold text-black">Staff Members</h3>
+                <button
+                  onClick={() => setShowStaffForm(!showStaffForm)}
+                  className="text-base font-semibold text-[#1177E5] hover:underline"
+                >
+                  + Add User
+                </button>
               </div>
 
               {showStaffForm && (
-                <form onSubmit={handleStaffSubmit} className="rounded-lg bg-baky-card/40 p-5 space-y-4 border border-baky-muted/10">
-                  <h4 className="text-base font-semibold text-black">
-                    {editingStaffName ? `Edit User: ${editingStaffName}` : "Create New Staff User"}
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-baky-muted">Full Name</label>
-                      <input
-                        type="text"
-                        required
-                        className="w-full rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                        value={staffName}
-                        onChange={(e) => setStaffName(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-baky-muted">Role/Title</label>
-                      <input
-                        type="text"
-                        required
-                        className="w-full rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                        placeholder="e.g. Cashier, Chef"
-                        value={staffRole}
-                        onChange={(e) => setStaffRole(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-baky-muted">Contact Info</label>
-                      <input
-                        type="text"
-                        required
-                        className="w-full rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                        placeholder="e.g. Phone Number"
-                        value={staffContact}
-                        onChange={(e) => setStaffContact(e.target.value)}
-                      />
-                    </div>
+                <form onSubmit={handleStaffSubmit} className="rounded-lg bg-baky-card/40 p-4 space-y-3 border border-baky-muted/10">
+                  <div className="grid grid-cols-1 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Full Name"
+                      required
+                      value={staffName}
+                      onChange={(e) => setStaffName(e.target.value)}
+                      className="rounded border border-baky-muted/30 bg-white px-2.5 py-1 text-base text-black outline-none focus:border-[#3395FF]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Role (e.g. Chef, Cashier)"
+                      required
+                      value={staffRole}
+                      onChange={(e) => setStaffRole(e.target.value)}
+                      className="rounded border border-baky-muted/30 bg-white px-2.5 py-1 text-base text-black outline-none focus:border-[#3395FF]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Contact Info"
+                      required
+                      value={staffContact}
+                      onChange={(e) => setStaffContact(e.target.value)}
+                      className="rounded border border-baky-muted/30 bg-white px-2.5 py-1 text-base text-black outline-none focus:border-[#3395FF]"
+                    />
                   </div>
-                  <div className="flex justify-end gap-2 pt-2">
+                  <div className="flex justify-end gap-2">
                     <button
                       type="button"
                       onClick={clearStaffForm}
-                      className="rounded-lg border border-baky-muted/30 px-4 py-2 text-base font-semibold text-black hover:bg-white"
+                      className="rounded border border-baky-muted/30 px-3 py-1 text-sm font-medium hover:bg-white"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="rounded-lg bg-baky-green px-4 py-2 text-base font-semibold text-white hover:opacity-90"
+                      className="rounded bg-[#3395FF] px-4 py-1 text-sm font-semibold text-white hover:bg-[#2a86ea]"
                     >
-                      {editingStaffName ? "Save Details" : "Create User"}
+                      {editingStaffName ? "Save" : "Add"}
                     </button>
                   </div>
                 </form>
               )}
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-baky-muted/20 text-base font-semibold text-baky-muted">
-                      <th className="pb-3">Name</th>
-                      <th className="pb-3">Role</th>
-                      <th className="pb-3">Contact</th>
-                      <th className="pb-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-baky-muted/10">
-                    {staff.map((member) => (
-                      <tr key={member.name} className="hover:bg-baky-card/5 transition-colors">
-                        <td className="py-4 text-lg font-medium text-black">{member.name}</td>
-                        <td className="py-4 text-base text-baky-muted">{member.role}</td>
-                        <td className="py-4 text-base text-baky-muted">{member.contact}</td>
-                        <td className="py-4 text-right space-x-2">
-                          <button
-                            onClick={() => startEditStaff(member)}
-                            className="inline-flex rounded-lg p-1.5 text-baky-muted hover:text-[#1177E5] hover:bg-baky-card/40 transition-all"
-                            title="Edit"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteStaff(member.name)}
-                            className="inline-flex rounded-lg p-1.5 text-baky-muted hover:text-baky-red hover:bg-baky-card/40 transition-all"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ul className="divide-y divide-baky-muted/10">
+                {staff.map((s) => (
+                  <li key={s.name} className="py-4 flex justify-between items-center group">
+                    <div>
+                      <p className="text-xl font-medium text-black">{s.name}</p>
+                      <p className="text-base text-baky-muted">{s.role} • {s.contact}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => startEditStaff(s)}
+                        className="p-1 hover:bg-baky-card rounded"
+                      >
+                        <Edit2 className="h-4 w-4 text-baky-muted hover:text-[#1177E5]" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStaff(s.name)}
+                        className="p-1 hover:bg-baky-card rounded"
+                      >
+                        <Trash2 className="h-4 w-4 text-baky-muted hover:text-baky-red" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {/* TAB 2: OUTLET MANAGEMENT */}
-          {activeTab === "outlets" && (
+          {/* Outlets Option Selected */}
+          {selectedOption === "Outlets" && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between border-b pb-3 border-baky-muted/20">
                 <h3 className="text-2xl font-semibold text-black">Store Outlets</h3>
-                {!showOutletForm && (
-                  <button
-                    onClick={() => setShowOutletForm(true)}
-                    className="rounded-lg bg-[#3395FF] px-4 py-2 text-base font-bold text-white hover:bg-[#2a86ea] transition-all"
-                  >
-                    + Add Outlet
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowOutletForm(!showOutletForm)}
+                  className="text-base font-semibold text-[#1177E5] hover:underline"
+                >
+                  + Add Store
+                </button>
               </div>
 
               {showOutletForm && (
-                <form onSubmit={handleOutletSubmit} className="rounded-lg bg-baky-card/40 p-5 space-y-4 border border-baky-muted/10">
-                  <h4 className="text-base font-semibold text-black">
-                    {editingOutletName ? `Edit Store: ${editingOutletName}` : "Register New Outlet Store"}
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-baky-muted">Outlet Name</label>
-                      <input
-                        type="text"
-                        required
-                        className="w-full rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                        value={outletName}
-                        onChange={(e) => setOutletName(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-baky-muted">Location</label>
-                      <input
-                        type="text"
-                        required
-                        className="w-full rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                        value={outletLoc}
-                        onChange={(e) => setOutletLoc(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-baky-muted">Phone Number</label>
-                      <input
-                        type="text"
-                        required
-                        className="w-full rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                        value={outletPhone}
-                        onChange={(e) => setOutletPhone(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-baky-muted">Status</label>
-                      <select
-                        required
-                        className="w-full rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                        value={outletStatus}
-                        onChange={(e) => setOutletStatus(e.target.value as "Active" | "Inactive")}
-                      >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                      </select>
-                    </div>
+                <form onSubmit={handleOutletSubmit} className="rounded-lg bg-baky-card/40 p-4 space-y-3 border border-baky-muted/10">
+                  <div className="grid grid-cols-1 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Outlet Name"
+                      required
+                      value={outletName}
+                      onChange={(e) => setOutletName(e.target.value)}
+                      className="rounded border border-baky-muted/30 bg-white px-2.5 py-1 text-base text-black outline-none focus:border-[#3395FF]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Location"
+                      required
+                      value={outletLoc}
+                      onChange={(e) => setOutletLoc(e.target.value)}
+                      className="rounded border border-baky-muted/30 bg-white px-2.5 py-1 text-base text-black outline-none focus:border-[#3395FF]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Phone Number"
+                      required
+                      value={outletPhone}
+                      onChange={(e) => setOutletPhone(e.target.value)}
+                      className="rounded border border-baky-muted/30 bg-white px-2.5 py-1 text-base text-black outline-none focus:border-[#3395FF]"
+                    />
+                    <select
+                      value={outletStatus}
+                      onChange={(e) => setOutletStatus(e.target.value as "Active" | "Inactive")}
+                      className="rounded border border-baky-muted/30 bg-white px-2.5 py-1 text-base text-black outline-none focus:border-[#3395FF]"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
                   </div>
-                  <div className="flex justify-end gap-2 pt-2">
+                  <div className="flex justify-end gap-2">
                     <button
                       type="button"
                       onClick={clearOutletForm}
-                      className="rounded-lg border border-baky-muted/30 px-4 py-2 text-base font-semibold text-black hover:bg-white"
+                      className="rounded border border-baky-muted/30 px-3 py-1 text-sm font-medium hover:bg-white"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="rounded-lg bg-baky-green px-4 py-2 text-base font-semibold text-white hover:opacity-90"
+                      className="rounded bg-[#3395FF] px-4 py-1 text-sm font-semibold text-white hover:bg-[#2a86ea]"
                     >
-                      {editingOutletName ? "Save Store" : "Add Store"}
+                      {editingOutletName ? "Save" : "Add"}
                     </button>
                   </div>
                 </form>
               )}
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-baky-muted/20 text-base font-semibold text-baky-muted">
-                      <th className="pb-3">Store Name</th>
-                      <th className="pb-3">Location</th>
-                      <th className="pb-3">Contact</th>
-                      <th className="pb-3">Status</th>
-                      <th className="pb-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-baky-muted/10">
-                    {outlets.map((outlet) => (
-                      <tr key={outlet.name} className="hover:bg-baky-card/5 transition-colors">
-                        <td className="py-4 text-lg font-medium text-black">{outlet.name}</td>
-                        <td className="py-4 text-base text-baky-muted">{outlet.location}</td>
-                        <td className="py-4 text-base text-baky-muted">{outlet.phone}</td>
-                        <td className="py-4 text-base">
-                          <span className={`inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full ${
-                            outlet.status === "Active"
-                              ? "text-baky-green bg-baky-green/10"
-                              : "text-baky-muted bg-baky-muted/10"
-                          }`}>
-                            {outlet.status}
-                          </span>
-                        </td>
-                        <td className="py-4 text-right space-x-2">
-                          <button
-                            onClick={() => startEditOutlet(outlet)}
-                            className="inline-flex rounded-lg p-1.5 text-baky-muted hover:text-[#1177E5] hover:bg-baky-card/40 transition-all"
-                            title="Edit"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteOutlet(outlet.name)}
-                            className="inline-flex rounded-lg p-1.5 text-baky-muted hover:text-baky-red hover:bg-baky-card/40 transition-all"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ul className="divide-y divide-baky-muted/10">
+                {outlets.map((o) => (
+                  <li key={o.name} className="py-4 flex justify-between items-center group">
+                    <div>
+                      <p className="text-xl font-medium text-black">
+                        {o.name}
+                        <span className={`ml-2 text-xs font-bold px-1.5 py-0.5 rounded ${
+                          o.status === "Active" ? "text-baky-green bg-baky-green/10" : "text-baky-muted bg-baky-card"
+                        }`}>
+                          {o.status}
+                        </span>
+                      </p>
+                      <p className="text-base text-baky-muted">{o.location} • {o.phone}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => startEditOutlet(o)}
+                        className="p-1 hover:bg-baky-card rounded"
+                      >
+                        <Edit2 className="h-4 w-4 text-baky-muted hover:text-[#1177E5]" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteOutlet(o.name)}
+                        className="p-1 hover:bg-baky-card rounded"
+                      >
+                        <Trash2 className="h-4 w-4 text-baky-muted hover:text-baky-red" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {/* TAB 3: RESET DANGER ZONE */}
-          {activeTab === "reset" && (
-            <div className="flex flex-1 flex-col items-center justify-center p-8 max-w-md mx-auto text-center border border-dashed border-baky-red/30 rounded-2xl bg-baky-red/5">
-              <ShieldAlert className="h-16 w-16 text-baky-red animate-bounce" />
-              <h3 className="mt-4 text-2xl font-bold text-black">System Reset Area</h3>
-              
-              <p className="mt-2 text-base text-baky-muted font-normal">
-                This process will wipe all operational changes made to the POS, orders list, 
-                menu items, category state, and inventory tracking in this browser session. 
-                The application will load default seed data.
+          {/* Reset Option Selected */}
+          {selectedOption === "Reset" && (
+            <div className="flex flex-col items-center justify-center p-6 text-center border border-dashed border-baky-red/20 bg-baky-red/5 rounded-xl">
+              <h3 className="text-2xl font-bold text-black mb-2">Reset All System Data</h3>
+              <p className="text-base text-baky-muted mb-6 leading-relaxed">
+                This will wipe out all of your customized settings, local orders, inventory updates, 
+                and restore the default mockup datasets.
               </p>
-
               <button
                 onClick={handleResetData}
-                className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-baky-red text-xl font-bold text-white transition-all hover:bg-red-700 shadow-md active:scale-[0.98]"
+                className="flex items-center gap-2 rounded-xl bg-baky-red px-6 py-3 text-lg font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-[0.98]"
               >
-                <RotateCcw className="h-5 w-5" />
-                <span>Reset All System Data</span>
+                <RotateCcw className="h-4 w-4" /> Reset Settings
               </button>
+            </div>
+          )}
+
+          {/* Empty details display (keeps design accurate if nothing selected) */}
+          {!selectedOption && (
+            <div className="hidden lg:flex flex-col items-center justify-center h-full text-center p-8">
+              <p className="text-xl text-baky-muted font-light">Select an option from the Admin list to manage settings.</p>
             </div>
           )}
         </section>

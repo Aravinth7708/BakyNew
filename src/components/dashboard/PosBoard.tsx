@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useBakyData, MenuItem, OrderItem } from "@/context/BakyDataContext";
 import { toast } from "sonner";
-import { Trash2, Plus, Minus, Check } from "lucide-react";
 
 export function PosBoard() {
   const { 
@@ -12,14 +11,15 @@ export function PosBoard() {
     addMenuItem 
   } = useBakyData();
 
-  // Filter enabled categories and items
+  // Filter enabled categories
   const activeCategories = categories.filter(c => c.enabled);
-  
+
+  // States
   const [selectedCategory, setSelectedCategory] = useState<string>(
     activeCategories[0]?.name || ""
   );
 
-  // If selectedCategory is not in enabled list (e.g. disabled in menu), fall back
+  // Fallback if category disabled in menu
   const currentCategory = activeCategories.some(c => c.name === selectedCategory)
     ? selectedCategory
     : activeCategories[0]?.name || "";
@@ -28,89 +28,69 @@ export function PosBoard() {
     (item) => item.enabled && item.category === currentCategory
   );
 
-  // States for adding items to cart
-  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  // Cart state: item -> quantity and selected variant
   const [cart, setCart] = useState<OrderItem[]>([]);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  
+  // Toggles for variant lists
+  const [expandedVariants, setExpandedVariants] = useState<Record<string, boolean>>({});
 
-  // States for forms
-  const [showAddCategoryForm, setShowAddCategoryForm] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
+  // Inline forms toggles
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
 
-  const [showAddItemForm, setShowAddItemForm] = useState(false);
+  const [showAddItem, setShowAddItem] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
   const [newItemVariants, setNewItemVariants] = useState("");
 
-  // Cart operations
+  const toggleVariantsExpand = (itemName: string) => {
+    setExpandedVariants(prev => ({ ...prev, [itemName]: !prev[itemName] }));
+  };
+
   const handleSelectVariant = (itemName: string, variant: string) => {
     setSelectedVariants(prev => ({ ...prev, [itemName]: variant }));
   };
 
   const handleAddToCart = (item: MenuItem) => {
-    const selectedVariant = item.variants.length > 0 
+    const variant = item.variants.length > 0 
       ? selectedVariants[item.name] || item.variants[0]
       : undefined;
 
-    // Check if item with same name and variant already in cart
-    const existingIndex = cart.findIndex(
-      (cartItem) => 
-        cartItem.name === item.name && 
-        cartItem.variant === selectedVariant
+    const existingIdx = cart.findIndex(
+      (c) => c.name === item.name && c.variant === variant
     );
 
-    if (existingIndex > -1) {
-      const updatedCart = [...cart];
-      updatedCart[existingIndex].quantity += 1;
-      setCart(updatedCart);
+    if (existingIdx > -1) {
+      const newCart = [...cart];
+      newCart[existingIdx].quantity += 1;
+      setCart(newCart);
     } else {
-      const cartItem: OrderItem = {
-        name: item.name,
-        price: item.price,
-        quantity: 1,
-        variant: selectedVariant,
-      };
-      setCart([...cart, cartItem]);
+      setCart([...cart, { name: item.name, price: item.price, quantity: 1, variant }]);
     }
-    toast.success(`Added ${item.name}${selectedVariant ? ` (${selectedVariant})` : ""} to cart`);
-  };
-
-  const updateCartQuantity = (index: number, delta: number) => {
-    const updatedCart = [...cart];
-    updatedCart[index].quantity += delta;
-    if (updatedCart[index].quantity <= 0) {
-      updatedCart.splice(index, 1);
-    }
-    setCart(updatedCart);
-  };
-
-  const handleRemoveFromCart = (index: number) => {
-    const item = cart[index];
-    setCart(cart.filter((_, idx) => idx !== index));
-    toast.info(`Removed ${item.name} from cart`);
+    toast.success(`Added ${item.name}${variant ? ` (${variant})` : ""} to order`);
   };
 
   const handlePlaceOrder = () => {
     if (cart.length === 0) {
-      toast.error("Cart is empty");
+      toast.error("No items added to current order.");
       return;
     }
-
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    placeOrder(cart, subtotal);
+    const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    placeOrder(cart, total);
     setCart([]);
     setSelectedVariants({});
     toast.success("Order placed successfully!");
   };
 
-  // Form handlers
   const handleCreateCategory = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategoryName.trim()) return;
-    addCategory(newCategoryName.trim());
-    setSelectedCategory(newCategoryName.trim());
-    setNewCategoryName("");
-    setShowAddCategoryForm(false);
-    toast.success(`Category "${newCategoryName}" created`);
+    if (!newCatName.trim()) return;
+    addCategory(newCatName.trim());
+    setSelectedCategory(newCatName.trim());
+    setNewCatName("");
+    setShowAddCategory(false);
+    toast.success(`Category "${newCatName}" created`);
   };
 
   const handleCreateItem = (e: React.FormEvent) => {
@@ -134,274 +114,213 @@ export function PosBoard() {
     setNewItemName("");
     setNewItemPrice("");
     setNewItemVariants("");
-    setShowAddItemForm(false);
+    setShowAddItem(false);
     toast.success(`Item "${newItem.name}" created`);
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="flex flex-1 flex-col gap-6 lg:flex-row">
-      {/* Category and Items Panel */}
-      <div className="flex flex-1 flex-col rounded-[15px] bg-baky-surface p-6 shadow-sm">
-        <div className="grid flex-1 grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-6">
-          {/* Categories Column */}
-          <section className="flex flex-col border-b border-baky-muted/20 pb-6 md:border-b-0 md:border-r md:pr-6 md:pb-0">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-black">
-                Categories ({activeCategories.length})
-              </h2>
+    <div className="flex flex-1 flex-col rounded-[15px] bg-baky-surface">
+      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        
+        {/* Category column */}
+        <section className="flex flex-col border-b border-baky-muted/50 p-6 lg:border-b-0 lg:border-r">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-medium text-black">
+              Category ({activeCategories.length})
+            </h2>
+            <button 
+              onClick={() => setShowAddCategory(!showAddCategory)}
+              className="text-lg font-semibold text-[#1177E5] hover:underline"
+            >
+              + ADD NEW
+            </button>
+          </div>
+
+          {showAddCategory && (
+            <form onSubmit={handleCreateCategory} className="mt-4 flex gap-2">
+              <input
+                type="text"
+                required
+                placeholder="Category Name"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                className="flex-1 rounded-lg border border-baky-muted/30 px-3 py-1.5 text-base text-black outline-none focus:border-[#3395FF]"
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="rounded-lg bg-[#3395FF] px-4 py-1.5 text-base font-semibold text-white hover:bg-[#2a86ea]"
+              >
+                Add
+              </button>
+            </form>
+          )}
+
+          <ul className="mt-6 divide-y divide-baky-muted/30">
+            {activeCategories.map((c) => (
+              <li
+                key={c.name}
+                className={`flex items-center justify-between px-2 py-4 text-xl text-black cursor-pointer rounded-md ${
+                  c.name === currentCategory ? "bg-baky-card font-semibold" : ""
+                }`}
+                onClick={() => setSelectedCategory(c.name)}
+              >
+                <span>{c.name}</span>
+                <button className="text-lg font-semibold text-[#1177E5]">+</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* Items column */}
+        <section className="flex flex-col p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-medium text-black">
+              Items ({activeItems.length})
+            </h2>
+            {currentCategory && (
               <button 
-                onClick={() => setShowAddCategoryForm(!showAddCategoryForm)}
-                className="text-base font-bold text-[#1177E5] hover:underline"
+                onClick={() => setShowAddItem(!showAddItem)}
+                className="text-lg font-semibold text-[#1177E5] hover:underline"
               >
                 + ADD NEW
               </button>
-            </div>
+            )}
+          </div>
 
-            {showAddCategoryForm && (
-              <form onSubmit={handleCreateCategory} className="mt-4 flex gap-2">
+          {showAddItem && (
+            <form onSubmit={handleCreateItem} className="mt-4 rounded-lg bg-baky-card/50 p-4 space-y-3 border border-baky-muted/10">
+              <p className="text-sm font-semibold text-baky-muted">Adding item to {currentCategory}</p>
+              <div className="grid grid-cols-2 gap-2">
                 <input
                   type="text"
-                  placeholder="New Category..."
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  className="flex-1 rounded-lg border border-baky-muted/30 px-3 py-2 text-lg text-black outline-none focus:border-[#3395FF]"
-                  autoFocus
+                  placeholder="Item Name"
+                  required
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  className="rounded-lg border border-baky-muted/30 bg-white px-3 py-1.5 text-sm text-black outline-none focus:border-[#3395FF]"
                 />
+                <input
+                  type="number"
+                  placeholder="Price (₹)"
+                  required
+                  min="0"
+                  value={newItemPrice}
+                  onChange={(e) => setNewItemPrice(e.target.value)}
+                  className="rounded-lg border border-baky-muted/30 bg-white px-3 py-1.5 text-sm text-black outline-none focus:border-[#3395FF]"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Variants (comma-separated, e.g. Belgian, Brownie)"
+                value={newItemVariants}
+                onChange={(e) => setNewItemVariants(e.target.value)}
+                className="w-full rounded-lg border border-baky-muted/30 bg-white px-3 py-1.5 text-sm text-black outline-none focus:border-[#3395FF]"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddItem(false)}
+                  className="rounded-lg border border-baky-muted/30 px-3 py-1 text-sm font-medium text-black hover:bg-white"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-[#3395FF] px-4 py-2 text-lg font-medium text-white hover:bg-[#2a86ea]"
+                  className="rounded-lg bg-[#3395FF] px-4 py-1 text-sm font-semibold text-white hover:bg-[#2a86ea]"
                 >
-                  Save
+                  Create
                 </button>
-              </form>
-            )}
+              </div>
+            </form>
+          )}
 
-            <ul className="mt-6 flex flex-wrap gap-2 md:flex-col md:divide-y md:divide-baky-muted/10 md:gap-0">
-              {activeCategories.map((c) => (
-                <li key={c.name} className="md:w-full">
-                  <button
-                    onClick={() => {
-                      setSelectedCategory(c.name);
-                      setShowAddItemForm(false);
-                    }}
-                    className={`flex w-full items-center justify-between rounded-lg px-4 py-3 text-lg font-medium transition-all md:rounded-none md:py-4 ${
-                      c.name === currentCategory
-                        ? "bg-baky-card text-black font-semibold shadow-sm"
-                        : "text-baky-muted hover:bg-baky-card/30 hover:text-black"
-                    }`}
-                  >
-                    <span>{c.name}</span>
-                    <span className="text-[#1177E5] font-semibold text-sm">
-                      {menuItems.filter(item => item.enabled && item.category === c.name).length} items
-                    </span>
-                  </button>
-                </li>
-              ))}
-              {activeCategories.length === 0 && (
-                <p className="text-lg text-baky-muted py-4">No categories enabled.</p>
-              )}
-            </ul>
-          </section>
+          <ul className="mt-6 flex-1 space-y-4 max-h-[480px] overflow-y-auto pr-1">
+            {activeItems.map((item, i) => {
+              const showVariants = !!expandedVariants[item.name];
+              const selectedVar = selectedVariants[item.name] || item.variants[0];
 
-          {/* Items Column */}
-          <section className="flex flex-col">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-black">
-                Items ({activeItems.length})
-              </h2>
-              {currentCategory && (
-                <button 
-                  onClick={() => setShowAddItemForm(!showAddItemForm)}
-                  className="text-base font-bold text-[#1177E5] hover:underline"
+              return (
+                <li
+                  key={item.name}
+                  className={`rounded-md p-4 transition-all ${
+                    i === 0 ? "bg-baky-card" : "hover:bg-baky-card/20"
+                  }`}
                 >
-                  + ADD NEW
-                </button>
-              )}
-            </div>
-
-            {showAddItemForm && (
-              <form onSubmit={handleCreateItem} className="mt-4 rounded-lg bg-baky-card/40 p-4 space-y-3 border border-baky-muted/10">
-                <p className="text-sm font-semibold text-baky-muted">Adding item to {currentCategory}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="Item Name"
-                    required
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    className="rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Price (₹)"
-                    required
-                    min="0"
-                    value={newItemPrice}
-                    onChange={(e) => setNewItemPrice(e.target.value)}
-                    className="rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                  />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Variants (comma-separated, e.g. Belgian, Brownie)"
-                  value={newItemVariants}
-                  onChange={(e) => setNewItemVariants(e.target.value)}
-                  className="w-full rounded-lg border border-baky-muted/30 bg-white px-3 py-2 text-base text-black outline-none focus:border-[#3395FF]"
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddItemForm(false)}
-                    className="rounded-lg border border-baky-muted/30 px-3 py-1.5 text-base font-medium text-black hover:bg-white"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-[#3395FF] px-4 py-1.5 text-base font-semibold text-white hover:bg-[#2a86ea]"
-                  >
-                    Create
-                  </button>
-                </div>
-              </form>
-            )}
-
-            <ul className="mt-6 flex-1 space-y-4 max-h-[500px] overflow-y-auto pr-1">
-              {activeItems.map((item) => {
-                const currentVariantSelection = selectedVariants[item.name] || item.variants[0];
-                return (
-                  <li
-                    key={item.name}
-                    className="rounded-[12px] bg-baky-card/50 p-4 border border-baky-muted/10 transition-all hover:bg-baky-card/80"
-                  >
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="h-[9px] w-[9px] shrink-0 rounded-full bg-baky-bar-strong" />
-                            <p className="text-xl font-medium text-black">
-                              {item.name}
-                            </p>
-                          </div>
-                          <p className="mt-1 pl-4 text-lg font-bold text-black">
-                            ₹{item.price}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleAddToCart(item)}
-                          className="flex h-[36px] items-center gap-1 rounded-full bg-[#3395FF]/10 px-4 text-base font-bold text-[#1177E5] transition-colors hover:bg-[#3395FF] hover:text-white"
-                        >
-                          <Plus className="h-4 w-4" /> ADD
-                        </button>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="h-[9px] w-[9px] shrink-0 rounded-full bg-baky-bar-strong" />
+                        <p className="text-xl text-black">
+                          {item.name}, ₹{item.price}
+                        </p>
                       </div>
 
                       {item.variants.length > 0 && (
-                        <div className="pl-4">
-                          <p className="text-sm font-semibold text-baky-muted mb-2">Select Variant:</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {item.variants.map((v) => (
-                              <button
-                                key={v}
-                                onClick={() => handleSelectVariant(item.name, v)}
-                                className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium transition-all ${
-                                  currentVariantSelection === v
-                                    ? "bg-[#3395FF] text-white font-semibold shadow-sm"
-                                    : "bg-white text-baky-muted border border-baky-muted/20 hover:border-baky-muted"
-                                }`}
-                              >
-                                {currentVariantSelection === v && <Check className="h-3 w-3" />}
-                                {v}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+                        <button 
+                          onClick={() => toggleVariantsExpand(item.name)}
+                          className="mt-1 pl-4 text-[15px] font-semibold text-[#1177E5] hover:underline"
+                        >
+                          {showVariants ? "- Hide Variants" : `+ ${item.variants.length} Variants`}
+                        </button>
+                      )}
+
+                      {showVariants && item.variants.length > 0 && (
+                        <ul className="mt-2 space-y-2 pl-4">
+                          {item.variants.map((v) => (
+                            <li
+                              key={v}
+                              className="flex items-center gap-2 text-[15px] text-baky-muted cursor-pointer"
+                              onClick={() => handleSelectVariant(item.name, v)}
+                            >
+                              <span 
+                                className={`h-[9px] w-[9px] shrink-0 rounded-full border-[1.5px] transition-all ${
+                                  selectedVar === v 
+                                    ? "bg-[#1177E5] border-[#1177E5]" 
+                                    : "border-baky-muted"
+                                }`} 
+                              />
+                              <span className={selectedVar === v ? "text-black font-semibold" : ""}>{v}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
-                  </li>
-                );
-              })}
-              {activeItems.length === 0 && (
-                <div className="flex h-36 items-center justify-center rounded-lg border border-dashed border-baky-muted/20">
-                  <p className="text-lg text-baky-muted">No items in this category yet.</p>
-                </div>
-              )}
-            </ul>
-          </section>
-        </div>
-      </div>
+                    <button 
+                      onClick={() => handleAddToCart(item)}
+                      className="shrink-0 text-lg font-semibold text-[#1177E5] hover:underline"
+                    >
+                      + ADD
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+            {activeItems.length === 0 && (
+              <div className="flex h-36 items-center justify-center border border-dashed border-baky-muted/20 rounded-lg">
+                <p className="text-xl text-baky-muted font-light">No items in this category.</p>
+              </div>
+            )}
+          </ul>
 
-      {/* Cart Checkout Panel */}
-      <div className="w-full lg:w-[400px] flex flex-col rounded-[15px] bg-baky-surface p-6 shadow-sm border border-baky-muted/10">
-        <h2 className="text-2xl font-semibold text-black mb-6">Cart</h2>
-
-        <div className="flex-1 overflow-y-auto max-h-[350px] lg:max-h-[none] space-y-4 pr-1">
-          {cart.map((item, idx) => (
-            <div 
-              key={`${item.name}-${item.variant || ""}`}
-              className="flex items-start justify-between gap-4 p-3 rounded-lg bg-baky-card/30 border border-baky-muted/5"
+          <div className="mt-6 flex flex-col items-end gap-2">
+            {cartCount > 0 && (
+              <div className="text-sm font-medium text-baky-muted mr-2">
+                Selected: {cart.map(c => `${c.name}${c.variant ? ` (${c.variant})` : ""} x${c.quantity}`).join(", ")}
+              </div>
+            )}
+            <button 
+              onClick={handlePlaceOrder}
+              disabled={cart.length === 0}
+              className="flex h-[74px] w-full max-w-[475px] items-center justify-center rounded-[13px] bg-[#3395FF] text-3xl font-medium text-white transition-colors hover:bg-[#2a86ea] disabled:bg-baky-card disabled:text-baky-muted disabled:cursor-not-allowed shadow-sm active:scale-[0.99]"
             >
-              <div className="min-w-0">
-                <p className="text-lg font-medium text-black truncate">{item.name}</p>
-                {item.variant && (
-                  <p className="text-sm text-baky-muted mt-0.5">Variant: {item.variant}</p>
-                )}
-                <p className="text-base font-bold text-black mt-1">₹{item.price * item.quantity}</p>
-              </div>
-
-              <div className="flex flex-col items-end gap-2 shrink-0">
-                <button 
-                  onClick={() => handleRemoveFromCart(idx)}
-                  className="text-baky-muted hover:text-baky-red transition-colors"
-                  aria-label="Remove item"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-                
-                <div className="flex items-center gap-2 bg-white rounded-full border border-baky-muted/15 px-1 py-0.5">
-                  <button 
-                    onClick={() => updateCartQuantity(idx, -1)}
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-baky-muted hover:bg-baky-card"
-                  >
-                    <Minus className="h-3 w-3" />
-                  </button>
-                  <span className="text-base font-semibold w-5 text-center text-black">
-                    {item.quantity}
-                  </span>
-                  <button 
-                    onClick={() => updateCartQuantity(idx, 1)}
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-baky-muted hover:bg-baky-card"
-                  >
-                    <Plus className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {cart.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-48 text-center">
-              <p className="text-xl text-baky-muted font-light">Your cart is empty.</p>
-              <p className="text-sm text-baky-muted/60 mt-1">Add items from the menu to start an order.</p>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-6 border-t border-baky-muted/20 pt-6">
-          <div className="flex items-center justify-between text-xl font-medium text-black mb-6">
-            <span>Total Amount</span>
-            <span className="text-2xl font-bold">₹{cartTotal.toLocaleString("en-IN")}</span>
+              {cartCount > 0 ? `Add (${cartCount} items — ₹${cartTotal})` : "Add"}
+            </button>
           </div>
-
-          <button
-            onClick={handlePlaceOrder}
-            disabled={cart.length === 0}
-            className="w-full flex h-[64px] items-center justify-center rounded-[13px] bg-[#3395FF] text-2xl font-semibold text-white transition-all hover:bg-[#2a86ea] disabled:bg-baky-card disabled:text-baky-muted disabled:cursor-not-allowed shadow-md hover:shadow-lg active:scale-[0.98]"
-          >
-            Place Order
-          </button>
-        </div>
+        </section>
       </div>
     </div>
   );
