@@ -1,16 +1,17 @@
-const items = [
-  { name: "Waffle flour (kg)", current: 5, total: 50 },
-  { name: "Brownie pracel plate (Pack)", current: 2, total: 10 },
-  { name: "Dark compound (Pack)", current: 1, total: 10 },
-];
+import { useBakyData } from "@/context/BakyDataContext";
 
 export function LowInventoryCard() {
+  const { inventory } = useBakyData();
+  
+  // Define low stock as 20% or less of total stock
+  const lowItems = inventory.filter((item) => item.current <= item.total * 0.2);
+
   return (
     <div className="rounded-[15px] bg-baky-card p-8">
       <p className="text-xl font-medium text-baky-muted">Low Inventory Alerts</p>
 
       <div className="mt-6 space-y-6">
-        {items.map(({ name, current, total }) => (
+        {lowItems.map(({ name, current, total }) => (
           <div key={name}>
             <div className="flex items-center justify-between text-xl font-normal text-baky-muted">
               <span>{name}</span>
@@ -29,6 +30,11 @@ export function LowInventoryCard() {
             </div>
           </div>
         ))}
+        {lowItems.length === 0 && (
+          <p className="text-xl font-light text-baky-muted text-center py-8">
+            All inventory levels are normal.
+          </p>
+        )}
       </div>
     </div>
   );
