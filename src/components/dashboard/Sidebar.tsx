@@ -31,7 +31,7 @@ export function Sidebar() {
         <img 
           src="/Baky logo .png" 
           alt="Baky Logo" 
-          className="h-12 w-12 rounded-full object-cover" 
+          className="h-12 w-12 object-contain" 
         />
         <div className="leading-tight">
           <p className="text-2xl font-medium text-black">Baky Dessert House</p>
